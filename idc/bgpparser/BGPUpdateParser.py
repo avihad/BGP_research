@@ -3,7 +3,7 @@ __author__ = 'avihad'
 import pybgpdump
 
 bgpUpdatesPath="../../resources/updates/"
-bgpFile = bgpUpdatesPath + "updates.20020101.0027.bz2"
+bgpFile = bgpUpdatesPath + "updates.20020101.0012.bz2"
 
 print bgpFile
 
