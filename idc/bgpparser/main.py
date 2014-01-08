@@ -23,7 +23,10 @@ def ribPreProccess():
     try:
         rib = RibDump(ribFilePath)
         for time, ip_from, as_from, prefix, aspath, next_hop in rib:
-            prefixUpdateCount[prefix] = 0
+            prefixUpdateCount[prefix] = {}
+            prefixUpdateCount[prefix]["count"] = 0
+            prefixUpdateCount[prefix]["first"] = float(time)
+            prefixUpdateCount[prefix]["last"] = float(time)
             counter += 1
 
         print "Number of prefixes in the rib: "
@@ -34,14 +37,33 @@ def ribPreProccess():
         print "Memory Error - how big is your rib ???"
 
 
+def extractPrefixFromStr(inputString, timestemp):
+
+    inputString = inputString.replace("[", "").replace("]", "").replace("RouteIPV4(", "").replace(")","").replace(" ", "")
+    if (len(inputString) > 0):
+        inputString = inputString.split(",")
+        for prefix in inputString:
+            if (prefixUpdateCount.has_key(prefix)):
+                prefixUpdateCount[prefix]["count"] += 1
+                prefixUpdateCount[prefix]["last"] = timestemp;
+            else:
+                prefixUpdateCount[prefix] = {}
+                prefixUpdateCount[prefix]["count"] = 1
+                prefixUpdateCount[prefix]["first"] = timestemp;
+                prefixUpdateCount[prefix]["last"] = timestemp;
+
+
 def main():
 
     #Reading Rib file
+    print("Prefix list length: ",len(prefixUpdateCount))
     ribPreProccess()
+    print("Prefix list length: ",len(prefixUpdateCount))
 
     #Reading BGP update massages
 
     bgpFiles = [ f for f in listdir(bgpUpdatesPath) if isfile(join(bgpUpdatesPath,f)) ]
+    bgpFiles = sorted(bgpFiles)
     for filePath in bgpFiles:
         parser = OptionParser()
         parser.add_option('-i', '--input', dest='input', default=bgpUpdatesPath+filePath,
@@ -50,8 +72,21 @@ def main():
 
         dump = BGPDump(bgpUpdatesPath+filePath)
         for mrt_h, bgp_h, bgp_m in dump:
-            print bgp_m.update.announced
-            print bgp_m.update.withdrawn
+            timestemp = mrt_h.ts
+            extractPrefixFromStr(str(bgp_m.update.announced),timestemp)
+            extractPrefixFromStr(str(bgp_m.update.withdrawn),timestemp)
+
+        #print("Prefix list length: ",len(prefixUpdateCount)," File name: ",filePath)
+
+    updatedPrefixes = {k: v for k, v in prefixUpdateCount.iteritems() if v["count"] > 0}
+
+
+    print("% of prefixes with no updates: ",((1 - ((len(updatedPrefixes) * 1.0) / len(prefixUpdateCount))) * 100))
+
+    prefixMaxUpdates = max(prefixUpdateCount,key= lambda k: prefixUpdateCount[k]["count"])
+
+    frequency = (prefixUpdateCount[prefixMaxUpdates]["count"]) / ((prefixUpdateCount[prefixMaxUpdates]["last"] - prefixUpdateCount[prefixMaxUpdates]["first"]) / 1000);
+    print("Prefix with most updates: ",prefixMaxUpdates," Num of Updates: " ,prefixUpdateCount[prefixMaxUpdates]["count"]," Friquency: ", frequency)
 
 
 
