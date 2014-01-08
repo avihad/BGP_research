@@ -7,6 +7,8 @@ from pybgpdump import BGPDump
 from os import listdir
 from os.path import isfile, join
 
+import tarfile
+
 resourcesPath="../../resources/"
 bgpUpdatesPath = resourcesPath + "updates/"
 
@@ -15,6 +17,8 @@ prefixUpdateCount = {}
 
 
 def ribPreProccess():
+    tfile = tarfile.open(ribFilePath+".tar.gz","r:gz")
+    tfile.extractall(resourcesPath+"ribs/")
     counter = 0
     try:
         rib = RibDump(ribFilePath)
@@ -33,7 +37,7 @@ def ribPreProccess():
 def main():
 
     #Reading Rib file
-   # ribPreProccess()
+    ribPreProccess()
 
     #Reading BGP update massages
 
