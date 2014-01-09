@@ -10,6 +10,7 @@ import pygal
 
 import tarfile
 from operator import itemgetter
+import math
 
 resourcesPath="../../resources/"
 bgpUpdatesPath = resourcesPath + "updates/"
@@ -45,7 +46,7 @@ def extractPrefixFromStr(inputString, timestemp):
     if (len(inputString) > 0):
         inputString = inputString.split(",")
         for prefix in inputString:
-            if (prefixUpdateCount.has_key(prefix)):
+            if prefixUpdateCount.has_key(prefix):
                 prefixUpdateCount[prefix]["count"] += 1
                 prefixUpdateCount[prefix]["last"] = timestemp;
             else:
@@ -91,7 +92,34 @@ def main():
     print("Prefix with most updates: ",prefixMaxUpdates," Num of Updates: " ,prefixUpdateCount[prefixMaxUpdates]["count"]," Friquency: ", frequency)
 
     #Question 1.c
-    cumulativeChart(prefixUpdateCount.values())
+    prefixStat = prefixUpdateCount.values()
+    cumulativeChart(prefixStat)
+
+    #Question 2.a
+    interArrivalChart(prefixStat)
+
+    #Question 2.b
+    print "Resalable T can be 3 seconds as we can see from the inter arrival chart"
+
+    #Question 2.c
+
+def interArrivalChart(values):
+    interArrival = {}
+
+    for value in values:
+        timeDiff = math.floor((value["last"] - value["first"]) / 1000)
+        if interArrival.has_key(timeDiff):
+            interArrival[timeDiff] +=1
+        else:
+            interArrival[timeDiff] = 0
+
+    interArrivalList = [value for value in interArrival.items() if value[1] > 0 and value[0] != 0]
+    interArrivalList.sort(key=itemgetter(0))
+
+    print [value for value in interArrival.items() if value[1] == 1196]
+    bar_chart = pygal.XY(title = "Inter Arrival time" , x_title = "Seconds", y_title = "num of msg in x interval seconds")
+    bar_chart.add("Values",interArrivalList)
+    bar_chart.render_to_file("interArrival.svg")
 
 
 
@@ -106,8 +134,7 @@ def cumulativeChart(values):
         cumulativeValues.append(((i / values_len) * 100,cumulativeValues[i - 1][1] + value["count"]))
         i += 1
 
-    xy_chart = pygal.XY()
-    xy_chart.title = "Cumulative chart"
+    xy_chart = pygal.XY(title = "Cumulative chart", x_title = "% of prefixes", y_title="Number of update msgs")
     xy_chart.add("Values",cumulativeValues)
     xy_chart.render_to_file("cumulative.svg")
 
