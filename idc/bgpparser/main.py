@@ -17,6 +17,9 @@ bgpUpdatesPath = resourcesPath + "updates/"
 
 ribFilePath = resourcesPath + "ribs/rib.20020101.0027.parsed"
 prefixUpdateCount = {}
+interArrivalEvents = []
+
+ARRIVAL_INTERVAL = 3
 
 
 def ribPreProccess():
@@ -30,6 +33,11 @@ def ribPreProccess():
             prefixUpdateCount[prefix]["count"] = 0
             prefixUpdateCount[prefix]["first"] = float(time)
             prefixUpdateCount[prefix]["last"] = float(time)
+
+            #Used to calculate if we are in a new interval arrival
+            prefixUpdateCount[prefix]["count_tmp"] = 0
+            prefixUpdateCount[prefix]["first_tmp"] = float(time)
+            prefixUpdateCount[prefix]["last_tmp"] = float(time)
             counter += 1
 
         print "Number of prefixes in the rib: "
@@ -55,6 +63,90 @@ def extractPrefixFromStr(inputString, timestemp):
                 prefixUpdateCount[prefix]["first"] = timestemp;
                 prefixUpdateCount[prefix]["last"] = timestemp;
 
+                #Initialize also the tmp vars
+                prefixUpdateCount[prefix]["count_tmp"] = 1
+                prefixUpdateCount[prefix]["first_tmp"] = timestemp
+                prefixUpdateCount[prefix]["last_tmp"] = timestemp
+
+            updateInterArrivalTime(prefix,timestemp,ARRIVAL_INTERVAL )
+
+def updateInterArrivalTime(prefix,timestemp,interval):
+    if (timestemp - prefixUpdateCount[prefix]["first_tmp"]) > interval :
+        interArrivalEvents.append((prefixUpdateCount[prefix]["count"] - prefixUpdateCount[prefix]["count_tmp"], prefixUpdateCount[prefix]["first_tmp"], prefixUpdateCount[prefix]["last_tmp"]))
+        prefixUpdateCount[prefix]["count_tmp"] = prefixUpdateCount[prefix]["count"]
+        prefixUpdateCount[prefix]["first_tmp"] = timestemp
+        prefixUpdateCount[prefix]["last_tmp"] = timestemp
+    else:
+        prefixUpdateCount[prefix]["last_tmp"] = timestemp
+
+
+def interArrivalChart(values):
+    interArrival = {}
+
+    for value in values:
+        timeDiff = math.floor((value["last"] - value["first"]) / 1000)
+        if interArrival.has_key(timeDiff):
+            interArrival[timeDiff] +=1
+        else:
+            interArrival[timeDiff] = 0
+
+    interArrivalList = [value for value in interArrival.items() if value[1] > 0 and value[0] != 0]
+    interArrivalList.sort(key=itemgetter(0))
+
+    print [value for value in interArrival.items() if value[1] == 1196]
+    bar_chart = pygal.XY(title = "Inter Arrival time" , x_title = "Seconds", y_title = "num of msg in x interval seconds")
+    bar_chart.add("Values",interArrivalList)
+    bar_chart.render_to_file("interArrival.svg")
+
+
+
+def cumulativeChart(values):
+
+    values.sort(key=itemgetter("count"),reverse=True)
+    cumulativeValues = [(0.0, values.pop(0)["count"])]
+
+    i = 1
+    values_len = len(values) * 1.0
+    for value in values:
+        cumulativeValues.append(((i / values_len) * 100,cumulativeValues[i - 1][1] + value["count"]))
+        i += 1
+
+    xy_chart = pygal.XY(title = "Cumulative chart", x_title = "% of prefixes", y_title="Number of update msgs")
+    xy_chart.add("Values",cumulativeValues)
+    xy_chart.render_to_file("cumulative.svg")
+
+def eventUpdateCountDist(inputEvents):
+    updateCount = {}
+    counter = 0.0
+
+    for event in inputEvents:
+        if updateCount.has_key(event[0]):
+            updateCount[event[0]] += 1
+        else:
+            updateCount[event[0]] = 1
+        counter += 1
+    updateCount = [(k,v/counter) for k , v in updateCount.items() ]
+
+    chart = pygal.XY(title = "Update msg per event distribution", x_title="Number of update msg", y_title="Probability")
+    chart.add("values",updateCount)
+    chart.render_to_file("updateMsgDist.svg")
+
+def eventDuarationDist(inputEvents):
+    updateCount = {}
+    counter = 0.0
+
+    for event in inputEvents:
+        key = math.floor(event[2] - event[1])
+        if updateCount.has_key(key):
+            updateCount[key] += 1
+        else:
+            updateCount[key] = 1
+        counter += 1
+    updateCount = [(k,v/counter) for k , v in updateCount.items() ]
+
+    chart = pygal.XY(title = "Event duration distribution", x_title="Event duration", y_title="Probability")
+    chart.add("values",updateCount)
+    chart.render_to_file("eventDurationDist.svg")
 
 def main():
 
@@ -101,42 +193,11 @@ def main():
     #Question 2.b
     print "Resalable T can be 3 seconds as we can see from the inter arrival chart"
 
-    #Question 2.c
+    #Question 2.c.i
+    eventUpdateCountDist(interArrivalEvents)
 
-def interArrivalChart(values):
-    interArrival = {}
-
-    for value in values:
-        timeDiff = math.floor((value["last"] - value["first"]) / 1000)
-        if interArrival.has_key(timeDiff):
-            interArrival[timeDiff] +=1
-        else:
-            interArrival[timeDiff] = 0
-
-    interArrivalList = [value for value in interArrival.items() if value[1] > 0 and value[0] != 0]
-    interArrivalList.sort(key=itemgetter(0))
-
-    print [value for value in interArrival.items() if value[1] == 1196]
-    bar_chart = pygal.XY(title = "Inter Arrival time" , x_title = "Seconds", y_title = "num of msg in x interval seconds")
-    bar_chart.add("Values",interArrivalList)
-    bar_chart.render_to_file("interArrival.svg")
-
-
-
-def cumulativeChart(values):
-
-    values.sort(key=itemgetter("count"),reverse=True)
-    cumulativeValues = [(0.0, values.pop(0)["count"])]
-
-    i = 1
-    values_len = len(values) * 1.0
-    for value in values:
-        cumulativeValues.append(((i / values_len) * 100,cumulativeValues[i - 1][1] + value["count"]))
-        i += 1
-
-    xy_chart = pygal.XY(title = "Cumulative chart", x_title = "% of prefixes", y_title="Number of update msgs")
-    xy_chart.add("Values",cumulativeValues)
-    xy_chart.render_to_file("cumulative.svg")
+    #Question 2.c.ii
+    eventDuarationDist(interArrivalEvents)
 
 
 if __name__ == '__main__':
