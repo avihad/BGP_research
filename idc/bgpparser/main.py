@@ -6,8 +6,10 @@ from pybgpdump import BGPDump
 
 from os import listdir
 from os.path import isfile, join
+import pygal
 
 import tarfile
+from operator import itemgetter
 
 resourcesPath="../../resources/"
 bgpUpdatesPath = resourcesPath + "updates/"
@@ -80,14 +82,34 @@ def main():
 
     updatedPrefixes = {k: v for k, v in prefixUpdateCount.iteritems() if v["count"] > 0}
 
-
+    #Question 1.a
     print("% of prefixes with no updates: ",((1 - ((len(updatedPrefixes) * 1.0) / len(prefixUpdateCount))) * 100))
 
+    #Question 1.b
     prefixMaxUpdates = max(prefixUpdateCount,key= lambda k: prefixUpdateCount[k]["count"])
-
     frequency = (prefixUpdateCount[prefixMaxUpdates]["count"]) / ((prefixUpdateCount[prefixMaxUpdates]["last"] - prefixUpdateCount[prefixMaxUpdates]["first"]) / 1000);
     print("Prefix with most updates: ",prefixMaxUpdates," Num of Updates: " ,prefixUpdateCount[prefixMaxUpdates]["count"]," Friquency: ", frequency)
 
+    #Question 1.c
+    cumulativeChart(prefixUpdateCount.values())
+
+
+
+def cumulativeChart(values):
+
+    values.sort(key=itemgetter("count"),reverse=True)
+    cumulativeValues = [(0.0, values.pop(0)["count"])]
+
+    i = 1
+    values_len = len(values) * 1.0
+    for value in values:
+        cumulativeValues.append(((i / values_len) * 100,cumulativeValues[i - 1][1] + value["count"]))
+        i += 1
+
+    xy_chart = pygal.XY()
+    xy_chart.title = "Cumulative chart"
+    xy_chart.add("Values",cumulativeValues)
+    xy_chart.render_to_file("cumulative.svg")
 
 
 if __name__ == '__main__':
