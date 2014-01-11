@@ -21,7 +21,7 @@ prefixUpdateCount = {}
 interArrivalIntervals = []
 interArrivalEvents = []
 
-ARRIVAL_INTERVAL = 80
+ARRIVAL_INTERVAL = 30
 
 
 def ribPreProccess():
@@ -50,7 +50,7 @@ def ribPreProccess():
         print "Memory Error - how big is your rib ???"
 
 
-def extractPrefixFromStr(inputString, timestemp):
+def extractPrefixFromStr(inputString,sourceIP, timestemp):
 
     inputString = inputString.replace("[", "").replace("]", "").replace("RouteIPV4(", "").replace(")","").replace(" ", "")
     if (len(inputString) > 0):
@@ -72,16 +72,24 @@ def extractPrefixFromStr(inputString, timestemp):
                 prefixUpdateCount[prefix]["first_tmp"] = timestemp
                 prefixUpdateCount[prefix]["last_tmp"] = timestemp
 
-            updateInterArrivalTime(prefix,timestemp,ARRIVAL_INTERVAL )
+            updateInterArrivalTime(prefix,str(sourceIP),timestemp,ARRIVAL_INTERVAL )
 
-def updateInterArrivalTime(prefix,timestemp,interval):
-    if (timestemp - prefixUpdateCount[prefix]["first_tmp"]) > interval :
-        interArrivalEvents.append((prefixUpdateCount[prefix]["count"] - prefixUpdateCount[prefix]["count_tmp"], prefixUpdateCount[prefix]["first_tmp"], prefixUpdateCount[prefix]["last_tmp"]))
-        prefixUpdateCount[prefix]["count_tmp"] = prefixUpdateCount[prefix]["count"]
-        prefixUpdateCount[prefix]["first_tmp"] = timestemp
-        prefixUpdateCount[prefix]["last_tmp"] = timestemp
+def updateInterArrivalTime(prefix,sourceIP,timestemp,interval):
+    if prefixUpdateCount[prefix].has_key(sourceIP):
+        if (timestemp - prefixUpdateCount[prefix][sourceIP]["first"]) > interval :
+            interArrivalEvents.append((prefixUpdateCount[prefix][sourceIP]["count"], prefixUpdateCount[prefix][sourceIP]["first"], prefixUpdateCount[prefix][sourceIP]["last"]))
+            prefixUpdateCount[prefix][sourceIP]["count"] = 1
+            prefixUpdateCount[prefix][sourceIP]["first"] = timestemp
+            prefixUpdateCount[prefix][sourceIP]["last"] = timestemp
+        else:
+            prefixUpdateCount[prefix][sourceIP]["count"] += 1
+            prefixUpdateCount[prefix][sourceIP]["last"] = timestemp
     else:
-        prefixUpdateCount[prefix]["last_tmp"] = timestemp
+        prefixUpdateCount[prefix][sourceIP]= {}
+        prefixUpdateCount[prefix][sourceIP]["count"] = 1
+        prefixUpdateCount[prefix][sourceIP]["first"] = timestemp
+        prefixUpdateCount[prefix][sourceIP]["last"] = timestemp
+
 
 
 def interArrivalChart(values):
@@ -148,7 +156,7 @@ def eventDuarationDist(inputEvents):
         counter += 1
     updateCount = [(k,v/counter) for k , v in updateCount.items() ]
 
-    chart = pygal.XY(title = "Event duration distribution", x_title="Event duration", y_title="Probability")
+    chart = pygal.XY(title = "Event duration distribution", x_title="Event duration in mili sec", y_title="Probability")
     chart.add("values",updateCount)
     chart.render_to_file("eventDurationDist.svg")
 
@@ -173,8 +181,8 @@ def main():
         for mrt_h, bgp_h, bgp_m in dump:
             sourceIP = bgp_h.src_ip
             timestemp = mrt_h.ts
-            extractPrefixFromStr(str(bgp_m.update.announced),timestemp)
-            extractPrefixFromStr(str(bgp_m.update.withdrawn),timestemp)
+            extractPrefixFromStr(str(bgp_m.update.announced),sourceIP,timestemp)
+            extractPrefixFromStr(str(bgp_m.update.withdrawn),sourceIP,timestemp)
 
         #print("Prefix list length: ",len(prefixUpdateCount)," File name: ",filePath)
 
