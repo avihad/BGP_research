@@ -21,7 +21,7 @@ prefixUpdateCount = {}
 interArrivalIntervals = []
 interArrivalEvents = []
 
-ARRIVAL_INTERVAL = 30
+ARRIVAL_INTERVAL = 60
 
 
 def ribPreProccess():
@@ -57,8 +57,9 @@ def extractPrefixFromStr(inputString,sourceIP, timestemp):
         inputString = inputString.split(",")
         for prefix in inputString:
             if prefixUpdateCount.has_key(prefix):
-                if prefixUpdateCount[prefix]["first"] != prefixUpdateCount[prefix]["last"]:
-                    interArrivalIntervals.append(timestemp - prefixUpdateCount[prefix]["last"])
+                #Added this to the calculation with the source ip in @updateInterArrivalTime
+                #if prefixUpdateCount[prefix]["first"] != prefixUpdateCount[prefix]["last"]:
+                #    interArrivalIntervals.append(timestemp - prefixUpdateCount[prefix]["last"])
                 prefixUpdateCount[prefix]["count"] += 1
                 prefixUpdateCount[prefix]["last"] = timestemp;
             else:
@@ -76,6 +77,9 @@ def extractPrefixFromStr(inputString,sourceIP, timestemp):
 
 def updateInterArrivalTime(prefix,sourceIP,timestemp,interval):
     if prefixUpdateCount[prefix].has_key(sourceIP):
+
+        interArrivalIntervals.append(timestemp - prefixUpdateCount[prefix][sourceIP]["last"])
+
         if (timestemp - prefixUpdateCount[prefix][sourceIP]["first"]) > interval :
             interArrivalEvents.append((prefixUpdateCount[prefix][sourceIP]["count"], prefixUpdateCount[prefix][sourceIP]["first"], prefixUpdateCount[prefix][sourceIP]["last"]))
             prefixUpdateCount[prefix][sourceIP]["count"] = 1
@@ -204,7 +208,7 @@ def main():
     interArrivalChart(interArrivalIntervals)
 
     #Question 2.b
-    print "Resalable T can be 3 seconds as we can see from the inter arrival chart"
+    print "Resalable T can be 60 mili sec as we can see from the inter arrival chart"
 
     #Question 2.c.i
     eventUpdateCountDist(interArrivalEvents)
