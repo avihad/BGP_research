@@ -17,9 +17,11 @@ bgpUpdatesPath = resourcesPath + "updates/"
 
 ribFilePath = resourcesPath + "ribs/rib.20020101.0027.parsed"
 prefixUpdateCount = {}
+
+interArrivalIntervals = []
 interArrivalEvents = []
 
-ARRIVAL_INTERVAL = 3
+ARRIVAL_INTERVAL = 80
 
 
 def ribPreProccess():
@@ -55,6 +57,8 @@ def extractPrefixFromStr(inputString, timestemp):
         inputString = inputString.split(",")
         for prefix in inputString:
             if prefixUpdateCount.has_key(prefix):
+                if prefixUpdateCount[prefix]["first"] != prefixUpdateCount[prefix]["last"]:
+                    interArrivalIntervals.append(timestemp - prefixUpdateCount[prefix]["last"])
                 prefixUpdateCount[prefix]["count"] += 1
                 prefixUpdateCount[prefix]["last"] = timestemp;
             else:
@@ -84,17 +88,17 @@ def interArrivalChart(values):
     interArrival = {}
 
     for value in values:
-        timeDiff = math.floor((value["last"] - value["first"]) / 1000)
+        timeDiff = math.floor(value)
         if interArrival.has_key(timeDiff):
             interArrival[timeDiff] +=1
         else:
             interArrival[timeDiff] = 0
 
-    interArrivalList = [value for value in interArrival.items() if value[1] > 0 and value[0] != 0]
+    interArrivalList = [value for value in interArrival.items() if value[1] > 0 and value[0] <  100]
     interArrivalList.sort(key=itemgetter(0))
 
     print [value for value in interArrival.items() if value[1] == 1196]
-    bar_chart = pygal.XY(title = "Inter Arrival time" , x_title = "Seconds", y_title = "num of msg in x interval seconds")
+    bar_chart = pygal.XY(title = "Inter Arrival time" , x_title = "Mili Seconds", y_title = "Num of msg in x interval in mili sec")
     bar_chart.add("Values",interArrivalList)
     bar_chart.render_to_file("interArrival.svg")
 
@@ -167,6 +171,7 @@ def main():
 
         dump = BGPDump(bgpUpdatesPath+filePath)
         for mrt_h, bgp_h, bgp_m in dump:
+            sourceIP = bgp_h.src_ip
             timestemp = mrt_h.ts
             extractPrefixFromStr(str(bgp_m.update.announced),timestemp)
             extractPrefixFromStr(str(bgp_m.update.withdrawn),timestemp)
@@ -188,7 +193,7 @@ def main():
     cumulativeChart(prefixStat)
 
     #Question 2.a
-    interArrivalChart(prefixStat)
+    interArrivalChart(interArrivalIntervals)
 
     #Question 2.b
     print "Resalable T can be 3 seconds as we can see from the inter arrival chart"
